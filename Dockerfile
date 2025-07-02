@@ -13,4 +13,7 @@ COPY . /app
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Expone el servicio
-CMD ["sh", "-c", "hypercorn main:app --bind 0.0.0.0:${PORT:-8000}"]
+EXPOSE 8000
+
+# Usa el puerto de Railway si está definido
+CMD exec hypercorn main:app --bind 0.0.0.0:${PORT:-8000}
