@@ -9,12 +9,26 @@ import shutil
 
 app = FastAPI()
 
-# Imprime la versión de ffmpeg al iniciar el servidor
+# Imprime la versión de ffmpeg, el PATH, busca ffmpeg en rutas comunes y lista /nix/var/nix/profiles/default/bin al iniciar el servidor
 try:
     ffmpeg_version = subprocess.check_output(["ffmpeg", "-version"]).decode().split("\n")[0]
     print(f"[INFO] {ffmpeg_version}")
 except Exception as e:
     print(f"[ERROR] ffmpeg no está disponible: {e}")
+
+print(f"[INFO] PATH actual: {os.environ.get('PATH')}")
+
+# Busca ffmpeg en rutas comunes
+for path in ["/usr/bin/ffmpeg", "/nix/var/nix/profiles/default/bin/ffmpeg", "/bin/ffmpeg", "/usr/local/bin/ffmpeg"]:
+    if os.path.exists(path):
+        print(f"[INFO] ffmpeg encontrado en: {path}")
+
+# Lista el contenido de /nix/var/nix/profiles/default/bin
+try:
+    files = os.listdir("/nix/var/nix/profiles/default/bin")
+    print(f"[INFO] Archivos en /nix/var/nix/profiles/default/bin: {files}")
+except Exception as e:
+    print(f"[ERROR] No se pudo listar /nix/var/nix/profiles/default/bin: {e}")
 
 @app.post("/convert")
 async def convert_audio(file: UploadFile = File(...)):
