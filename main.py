@@ -1,10 +1,11 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 import subprocess
 import uuid
 import os
 import tempfile
 from starlette.background import BackgroundTask
+import shutil
 
 app = FastAPI()
 
@@ -14,7 +15,12 @@ async def convert_audio(file: UploadFile = File(...)):
     filename = file.filename
     ext = os.path.splitext(filename)[1].lower()
     if ext not in [".aac", ".amr", ".3gp"]:
-        raise HTTPException(status_code=400, detail="Formato no compatible")
+        return PlainTextResponse("Formato no compatible", status_code=400)
+
+    # Verifica que ffmpeg esté disponible
+    ffmpeg_path = shutil.which("ffmpeg")
+    if not ffmpeg_path:
+        return PlainTextResponse("ffmpeg no está instalado o no está en PATH", status_code=500)
 
     # Rutas temporales multiplataforma
     temp_dir = tempfile.gettempdir()
@@ -22,22 +28,25 @@ async def convert_audio(file: UploadFile = File(...)):
     output_path = input_path.rsplit(".", 1)[0] + ".m4a"
 
     # Guarda el archivo
-    with open(input_path, "wb") as f:
-        f.write(await file.read())
+    try:
+        with open(input_path, "wb") as f:
+            f.write(await file.read())
+    except Exception as e:
+        return PlainTextResponse(f"Error guardando archivo: {e}", status_code=500)
 
     # Ejecuta ffmpeg
     try:
-        subprocess.run(
+        result = subprocess.run(
             ["ffmpeg", "-y", "-i", input_path, "-c:a", "aac", "-b:a", "128k", output_path],
             check=True,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
-    except subprocess.CalledProcessError:
-        # Limpia archivo temporal de entrada si hay error
+    except subprocess.CalledProcessError as e:
+        error_msg = e.stderr.decode() if e.stderr else str(e)
         if os.path.exists(input_path):
             os.remove(input_path)
-        raise HTTPException(status_code=500, detail="Error al convertir el audio")
+        return PlainTextResponse(f"Error al convertir el audio: {error_msg}", status_code=500)
 
     # Tarea para limpiar archivos temporales después de la respuesta
     def cleanup():
