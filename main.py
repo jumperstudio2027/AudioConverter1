@@ -9,6 +9,13 @@ import shutil
 
 app = FastAPI()
 
+# Imprime la versión de ffmpeg al iniciar el servidor
+try:
+    ffmpeg_version = subprocess.check_output(["ffmpeg", "-version"]).decode().split("\n")[0]
+    print(f"[INFO] {ffmpeg_version}")
+except Exception as e:
+    print(f"[ERROR] ffmpeg no está disponible: {e}")
+
 @app.post("/convert")
 async def convert_audio(file: UploadFile = File(...)):
     # Verifica extensión
